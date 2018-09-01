@@ -18,20 +18,27 @@ namespace sys1_processes_winforms
 		{
 			InitializeComponent();
 
+			// добавляю колонки в listview
 			listView1.Columns.Add("Id", -2);
 			listView1.Columns.Add("Name", -2);
 			listView1.Columns.Add("Title", -1);
 			listView1.Columns.Add("Memory", -2);
 			listView1.Columns.Add("Start time", -2);
-			listView1.Columns.Add("Path", -2);
-			listView1.FullRowSelect = true;
-			listView1.ColumnClick += ListView1_ColumnClick;		
+			listView1.FullRowSelect = true; // возможность выделить всю строку в листе
+			listView1.ColumnClick += ListView1_ColumnClick; // для сортировки
+			listView1.ContextMenuStrip = contextMenuStripForList;
 
-			fill();
+			fill(); // заполняю listview
 
-			//TimerCallback timerCallback = new TimerCallback(updateFunc);
-			//System.Threading.Timer timer = new System.Threading.Timer(timerCallback);
-			//timer.Change(1000, 1000);
+			this.Resize += Form1_Resize;
+
+			ContextMenu contextMenuStrip = new ContextMenu();
+			contextMenuStrip.MenuItems.Add(new MenuItem("Exit", new EventHandler(close)));
+			notifyIcon1.ContextMenu = contextMenuStrip;
+
+			TimerCallback timerCallback = new TimerCallback(updateFunc);
+			System.Threading.Timer timer = new System.Threading.Timer(timerCallback);
+			timer.Change(1000, 1000);
 		}
 
 		private int sortColumn = -1;
@@ -47,21 +54,22 @@ namespace sys1_processes_winforms
 			{
 				listView1.Sorting = listView1.Sorting == SortOrder.Ascending ? SortOrder.Descending : SortOrder.Ascending;
 			}
-			
+
 			listView1.Sort();
 			listView1.ListViewItemSorter = new ListViewItemComparer(e.Column, listView1.Sorting);
 
 		}
 
-		//private void updateFunc(object state)
-		//{
-		//	listView1.Invoke(new Action(() => { listView1.Clear(); fill(); }));
-		//	//fill();
-		//	//foreach (var item in getProcessesStringArray())
-		//	//{
-		//	//	listView1.FindItemWithText(item[0], true, 0);
-		//	//}
-		//}
+		private void updateFunc(object state)
+		{
+			
+			//	listView1.Invoke(new Action(() => { listView1.Clear(); fill(); }));
+			//	//fill();
+			//	//foreach (var item in getProcessesStringArray())
+			//	//{
+			//	//	listView1.FindItemWithText(item[0], true, 0);
+			//	//}
+		}
 
 		void fill()
 		{
@@ -70,11 +78,14 @@ namespace sys1_processes_winforms
 			string filePath;
 			foreach (var item in Process.GetProcesses())
 			{
-				try { filePath = item.MainModule.FileName; }
-				catch (Exception e) { continue; }
-				imageList.Images.Add(item.ProcessName, Icon.ExtractAssociatedIcon(filePath));
+				try
+				{
+					filePath = item.MainModule.FileName;
+					imageList.Images.Add(item.ProcessName, Icon.ExtractAssociatedIcon(filePath));
+				}
+				catch (Exception ex) { continue; }
 			}
-		
+
 			foreach (var item in getProcessesStringArray())
 			{
 				listView1.Items.Add(new ListViewItem(item, item[1]));
@@ -88,8 +99,7 @@ namespace sys1_processes_winforms
 					p.ProcessName,
 					p.MainWindowTitle,
 					$"{p.PagedMemorySize64 / 1024 / 1024} MB",
-					processStartTime(p),
-					p.StartInfo.FileName
+					processStartTime(p)
 				})
 					.OrderBy(p => Convert.ToInt32(p[0]));
 		}
@@ -100,11 +110,68 @@ namespace sys1_processes_winforms
 			{
 				time = process.StartTime.ToShortTimeString();
 			}
-			catch(Exception ex)
+			catch (Exception ex)
 			{
 
 			}
 			return time;
+		}
+
+		private void buttonSelectFile_Click(object sender, EventArgs e)
+		{
+			OpenFileDialog openFileDialog = new OpenFileDialog();
+			openFileDialog.Filter = "Exe Files|*.exe|All Files (*.*)|*.*";
+			if (openFileDialog.ShowDialog() == DialogResult.OK)
+				textBoxFilePath.Text = openFileDialog.FileName;
+		}
+
+		private void buttonStart_Click(object sender, EventArgs e)
+		{
+			DateTime dt = dateTimePicker1.Value;
+			TimerCallback timerCallback = new TimerCallback(runForrestRun);
+			System.Threading.Timer timer = new System.Threading.Timer(timerCallback);
+		//	timer.Change(new TimeSpan(), Timeout.Infinite)
+			Process.Start(textBoxFilePath.Text, textBoxParams.Text);
+		}
+
+		void runForrestRun(object obj)
+		{
+
+		}
+
+		private void notifyIcon1_MouseDoubleClick(object sender, MouseEventArgs e)
+		{
+			Show();
+			this.WindowState = FormWindowState.Normal;
+			notifyIcon1.Visible = false;
+		}
+
+		private void Form1_Resize(object sender, EventArgs e)
+		{
+			if (this.WindowState == FormWindowState.Minimized)
+			{
+				Hide();
+				notifyIcon1.Visible = true;
+				notifyIcon1.ShowBalloonTip(1000);
+			}
+		}
+
+		void close(object sender, EventArgs e)
+		{
+			Close();
+		}
+
+		private void refreshToolStripMenuItem_Click(object sender, EventArgs e)
+		{
+			Cursor.Current = Cursors.WaitCursor;
+			listView1.Items.Clear();
+			fill();
+			Cursor.Current = Cursors.Default;
+		}
+
+		private void completionByTimeToolStripMenuItem_Click(object sender, EventArgs e)
+		{
+			
 		}
 	}
 }
